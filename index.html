@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Adventure Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .game-character {
+            width: 50px;
+            height: 50px;
+            position: absolute;
+            transition: all 0.2s;
+        }
+        .platform {
+            position: absolute;
+            background: #4a5568;
+        }
+        .coin {
+            width: 20px;
+            height: 20px;
+            position: absolute;
+            background: gold;
+            border-radius: 50%;
+            animation: bounce 0.5s infinite alternate;
+        }
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-10px); }
+        }
+        #game-container {
+            background: linear-gradient(180deg, #87CEEB 0%, #4682B4 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .controls button {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="max-w-2xl w-full space-y-4">
+        <div class="text-center">
+            <h1 class="text-4xl font-bold text-white mb-2">Adventure Quest</h1>
+            <p class="text-gray-300">Score: <span id="score">0</span></p>
+        </div>
+
+        <div id="game-container" class="w-full h-[500px] rounded-lg shadow-lg relative">
+            <div id="player" class="game-character bg-red-500 rounded"></div>
+        </div>
+
+        <!-- Mobile-friendly controls -->
+        <div class="controls grid grid-cols-3 gap-2 max-w-xs mx-auto">
+            <div></div>
+            <button id="up" class="bg-gray-700 text-white p-4 rounded"><i class="bi bi-arrow-up"></i></button>
+            <div></div>
+            <button id="left" class="bg-gray-700 text-white p-4 rounded"><i class="bi bi-arrow-left"></i></button>
+            <button id="down" class="bg-gray-700 text-white p-4 rounded"><i class="bi bi-arrow-down"></i></button>
+            <button id="right" class="bg-gray-700 text-white p-4 rounded"><i class="bi bi-arrow-right"></i></button>
+        </div>
+    </div>
+
+    <script>
+        const player = document.getElementById('player');
+        const gameContainer = document.getElementById('game-container');
+        const scoreElement = document.getElementById('score');
+        let score = 0;
+        let playerX = 50;
+        let playerY = 400;
+        let isJumping = false;
+        let gravity = 0.6;
+        let velocityY = 0;
+
+        // Platform generation
+        const platforms = [
+            { x: 0, y: 450, width: 800, height: 20 },
+            { x: 300, y: 350, width: 200, height: 20 },
+            { x: 100, y: 250, width: 200, height: 20 },
+            { x: 400, y: 150, width: 200, height: 20 }
+        ];
+
+        // Create platforms
+        platforms.forEach(platform => {
+            const platformElement = document.createElement('div');
+            platformElement.className = 'platform';
+            platformElement.style.left = platform.x + 'px';
+            platformElement.style.top = platform.y + 'px';
+            platformElement.style.width = platform.width + 'px';
+            platformElement.style.height = platform.height + 'px';
+            gameContainer.appendChild(platformElement);
+        });
+
+        // Generate coins
+        function generateCoins() {
+            platforms.forEach(platform => {
+                const coin = document.createElement('div');
+                coin.className = 'coin';
+                coin.style.left = (platform.x + platform.width/2) + 'px';
+                coin.style.top = (platform.y - 30) + 'px';
+                gameContainer.appendChild(coin);
+            });
+        }
+
+        generateCoins();
+
+        function updatePlayerPosition() {
+            // Apply gravity
+            velocityY += gravity;
+            playerY += velocityY;
+
+            // Check platform collisions
+            platforms.forEach(platform => {
+                if (playerY + 50 > platform.y && 
+                    playerY + 50 < platform.y + platform.height + velocityY &&
+                    playerX + 50 > platform.x && 
+                    playerX < platform.x + platform.width) {
+                    playerY = platform.y - 50;
+                    velocityY = 0;
+                    isJumping = false;
+                }
+            });
+
+            // Boundary checks
+            if (playerX < 0) playerX = 0;
+            if (playerX > gameContainer.offsetWidth - 50) playerX = gameContainer.offsetWidth - 50;
+            if (playerY > gameContainer.offsetHeight - 50) {
+                playerY = gameContainer.offsetHeight - 50;
+                isJumping = false;
+                velocityY = 0;
+            }
+
+            // Collect coins
+            document.querySelectorAll('.coin').forEach(coin => {
+                const coinRect = coin.getBoundingClientRect();
+                const playerRect = player.getBoundingClientRect();
+                
+                if (playerRect.left < coinRect.right &&
+                    playerRect.right > coinRect.left &&
+                    playerRect.top < coinRect.bottom &&
+                    playerRect.bottom > coinRect.top) {
+                    coin.remove();
+                    score += 10;
+                    scoreElement.textContent = score;
+                }
+            });
+
+            player.style.left = playerX + 'px';
+            player.style.top = playerY + 'px';
+            requestAnimationFrame(updatePlayerPosition);
+        }
+
+        // Controls
+        const keys = {
+            ArrowLeft: false,
+            ArrowRight: false,
+            ArrowUp: false,
+            ArrowDown: false
+        };
+
+        document.addEventListener('keydown', e => {
+            if (keys.hasOwnProperty(e.key)) {
+                keys[e.key] = true;
+            }
+        });
+
+        document.addEventListener('keyup', e => {
+            if (keys.hasOwnProperty(e.key)) {
+                keys[e.key] = false;
+            }
+        });
+
+        // Mobile controls
+        document.getElementById('left').addEventListener('touchstart', () => keys.ArrowLeft = true);
+        document.getElementById('right').addEventListener('touchstart', () => keys.ArrowRight = true);
+        document.getElementById('up').addEventListener('touchstart', () => keys.ArrowUp = true);
+        document.getElementById('down').addEventListener('touchstart', () => keys.ArrowDown = true);
+
+        document.getElementById('left').addEventListener('touchend', () => keys.ArrowLeft = false);
+        document.getElementById('right').addEventListener('touchend', () => keys.ArrowRight = false);
+        document.getElementById('up').addEventListener('touchend', () => keys.ArrowUp = false);
+        document.getElementById('down').addEventListener('touchend', () => keys.ArrowDown = false);
+
+        // Game loop
+        function gameLoop() {
+            if (keys.ArrowLeft) playerX -= 5;
+            if (keys.ArrowRight) playerX += 5;
+            if (keys.ArrowUp && !isJumping) {
+                velocityY = -12;
+                isJumping = true;
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        updatePlayerPosition();
+        gameLoop();
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
